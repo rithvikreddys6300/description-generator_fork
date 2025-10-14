@@ -40,6 +40,17 @@ const lengths = [
   { value: "long", label: "Long" },
 ];
 
+const tones = [
+  { value: "professional", label: "Professional" },
+  { value: "casual", label: "Casual" },
+  { value: "friendly", label: "Friendly" },
+  { value: "persuasive", label: "Persuasive" },
+  { value: "technical", label: "Technical" },
+  { value: "creative", label: "Creative" },
+  { value: "formal", label: "Formal" },
+  { value: "playful", label: "Playful" },
+];
+
 export default function Page() {
   const [image, setImage] = useState<string | null>(null);
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>([]);
@@ -49,6 +60,9 @@ export default function Page() {
   const [status, setStatus] = useState<"idle" | "loading" | "success">("idle");
   const [model, setModel] = useState(models[0].value);
   const [length, setLength] = useState(lengths[0].value);
+  const [tone, setTone] = useState(tones[0].value);
+  const [customTone, setCustomTone] = useState("");
+  const [useCustomTone, setUseCustomTone] = useState(false);
 
   const { uploadToS3 } = useS3Upload();
 
@@ -65,6 +79,8 @@ export default function Page() {
 
     setStatus("loading");
 
+    const finalTone = useCustomTone ? customTone : tone;
+
     const response = await fetch("/api/generateDescriptions", {
       method: "POST",
       body: JSON.stringify({
@@ -72,6 +88,7 @@ export default function Page() {
         imageUrl: image,
         model,
         length,
+        tone: finalTone,
       }),
     });
 
@@ -197,6 +214,58 @@ export default function Page() {
                   </ToggleGroupItem>
                 ))}
               </ToggleGroup>
+            </div>
+            <div className="grid grid-cols-2 py-7">
+              <div>
+                <p className="text-sm font-bold text-gray-900">Tone</p>
+                <p className="mt-2 text-sm text-gray-500">
+                  Choose the tone for your product descriptions or add your own.
+                </p>
+              </div>
+              <div className="space-y-3">
+                {!useCustomTone ? (
+                  <ToggleGroup
+                    type="single"
+                    className="mx-auto flex flex-wrap justify-start gap-2"
+                    onValueChange={setTone}
+                    value={tone}
+                  >
+                    {tones.map((tone) => (
+                      <ToggleGroupItem
+                        variant="outline"
+                        key={tone.value}
+                        value={tone.value}
+                        className="rounded-full px-3 py-1 text-xs font-medium shadow-none data-[state=on]:bg-black data-[state=on]:text-white"
+                      >
+                        {tone.label}
+                      </ToggleGroupItem>
+                    ))}
+                  </ToggleGroup>
+                ) : (
+                  <div className="space-y-2">
+                    <input
+                      type="text"
+                      value={customTone}
+                      onChange={(e) => setCustomTone(e.target.value)}
+                      placeholder="Enter custom tone (e.g., humorous, elegant, quirky)"
+                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm placeholder-gray-400 focus:border-black focus:outline-none focus:ring-1 focus:ring-black"
+                    />
+                  </div>
+                )}
+                <div className="text-right">
+                  <button
+                    onClick={() => {
+                      setUseCustomTone(!useCustomTone);
+                      if (useCustomTone) {
+                        setCustomTone("");
+                      }
+                    }}
+                    className="text-xs font-semibold text-blue-400 hover:text-blue-500"
+                  >
+                    {useCustomTone ? "Use predefined tones" : "Use custom tone"}
+                  </button>
+                </div>
+              </div>
             </div>
             <div className="grid grid-cols-2 py-7">
               <div>
