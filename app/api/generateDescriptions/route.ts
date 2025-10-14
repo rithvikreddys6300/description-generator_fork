@@ -12,6 +12,7 @@ export async function POST(req: Request) {
       languages: z.array(z.string()),
       model: z.string(),
       length: z.string(),
+      tone: z.string().optional(),
     })
     .safeParse(json);
 
@@ -19,7 +20,7 @@ export async function POST(req: Request) {
     return new Response(result.error.message, { status: 422 });
   }
 
-  const { languages, imageUrl, model, length } = result.data;
+  const { languages, imageUrl, model, length, tone = "professional" } = result.data;
 
   let descriptions;
   let rawResponse;
@@ -42,7 +43,7 @@ export async function POST(req: Request) {
           content: [
             {
               type: "text",
-              text: `Given this product image, return JSON of a Amazon-like ${length} sales product description in each of these languages. ${languages
+              text: `Given this product image, return JSON of a Amazon-like ${length} sales product description in ${tone} tone in each of these languages. ${languages
                 .map((language) => `"${language}"`)
                 .join(", ")}
 
