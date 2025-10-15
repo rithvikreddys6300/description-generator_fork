@@ -2,7 +2,7 @@
 
 ![Product Description Generator Demo](/assets/Product%20Description%20Generator.gif)
 
-This is an ecommerce demo that allows you to upload a product image and get detailed descriptions for it in different languages. Powered by [Together AI](https://togetherai.link) and [Llama 3.2 Vision](https://togetherai.link/llama3.2vision/?utm_source=example-app&utm_medium=pdg&utm_campaign=product-description-generator).
+This is an ecommerce demo that allows you to upload a product image or GIF and get detailed descriptions for it in different languages. Powered by [Together AI](https://togetherai.link) and [Llama 3.2 Vision](https://togetherai.link/llama3.2vision/?utm_source=example-app&utm_medium=pdg&utm_campaign=product-description-generator).
 
 ## Tech stack
 

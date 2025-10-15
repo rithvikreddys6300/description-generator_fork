@@ -71,6 +71,15 @@ export default function Page() {
   ) => {
     const file = event.target.files?.[0];
     if (!file) return;
+
+    // Check file size (5MB = 5 * 1024 * 1024 bytes)
+    const maxFileSize = 5 * 1024 * 1024; // 5MB
+    if (file.size > maxFileSize) {
+      alert("File size exceeds 5MB limit. Please choose a smaller file.");
+      event.target.value = ""; // Reset the input
+      return;
+    }
+
     const { url } = await uploadToS3(file);
     setImage(url);
   };
@@ -106,8 +115,8 @@ export default function Page() {
           Product Description Generator
         </h2>
         <p className="mb-6 text-balance text-center text-sm text-gray-500">
-          Upload an image of your product to generate descriptions in multiple
-          languages.
+          Upload an image or GIF of your product to generate descriptions in multiple
+          languages. Max file size: 5MB.
         </p>
         <div>
           <div
@@ -136,12 +145,12 @@ export default function Page() {
               >
                 <div className="flex flex-col items-center">
                   <Upload className="mb-2 h-8 w-8" />
-                  <span>Upload product image</span>
+                  <span>Upload product image or GIF (max 5MB)</span>
                 </div>
                 <input
                   id="image-upload"
                   type="file"
-                  accept="image/*"
+                  accept="image/*,.gif"
                   onChange={handleImageUpload}
                   className="hidden"
                 />
