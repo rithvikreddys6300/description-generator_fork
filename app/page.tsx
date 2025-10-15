@@ -106,7 +106,7 @@ export default function Page() {
           Product Description Generator
         </h2>
         <p className="mb-6 text-balance text-center text-sm text-gray-500">
-          Upload an image of your product to generate descriptions in multiple
+          Upload an image or GIF of your product to generate descriptions in multiple
           languages.
         </p>
         <div>
@@ -136,12 +136,12 @@ export default function Page() {
               >
                 <div className="flex flex-col items-center">
                   <Upload className="mb-2 h-8 w-8" />
-                  <span>Upload product image</span>
+                  <span>Upload product image or GIF</span>
                 </div>
                 <input
                   id="image-upload"
                   type="file"
-                  accept="image/*"
+                  accept="image/*,.gif"
                   onChange={handleImageUpload}
                   className="hidden"
                 />

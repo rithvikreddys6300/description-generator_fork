@@ -49,6 +49,8 @@ export async function POST(req: Request) {
 
               Return a JSON object in the following shape: [{language: string, description, string},...]
 
+              Note: This may be a GIF image showing product features or animation. Analyze any visible content, motion, or context to create compelling product descriptions.
+
               It is very important for my career that you follow these instructions exactly. PLEASE ONLY RETURN JSON, NOTHING ELSE.
               `,
             },
