@@ -2,14 +2,23 @@
 "use client";
 
 import Spinner from "@/components/spinner";
+import CreditBalance from "@/components/credit-balance";
+import PurchaseCreditsModal from "@/components/purchase-credits-modal";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { Upload, X } from "lucide-react";
+import { Upload, X, AlertTriangle } from "lucide-react";
 import { useS3Upload } from "next-s3-upload";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { 
+  getCreditBalance, 
+  calculateCreditsRequired, 
+  deductCredits, 
+  hasSufficientCredits,
+  getUserId 
+} from "@/lib/credits";
 
 const languages = [
   { code: "en", name: "English" },
@@ -63,8 +72,43 @@ export default function Page() {
   const [tone, setTone] = useState(tones[0].value);
   const [customTone, setCustomTone] = useState("");
   const [useCustomTone, setUseCustomTone] = useState(false);
+  const [showPurchaseModal, setShowPurchaseModal] = useState(false);
+  const [creditsRequired, setCreditsRequired] = useState(0);
+  const [showCreditWarning, setShowCreditWarning] = useState(false);
 
   const { uploadToS3 } = useS3Upload();
+
+  // Calculate credits required when parameters change
+  useEffect(() => {
+    if (selectedLanguages.length > 0) {
+      const required = calculateCreditsRequired(selectedLanguages, model);
+      setCreditsRequired(required);
+      
+      // Check if user has sufficient credits
+      const sufficient = hasSufficientCredits(required);
+      setShowCreditWarning(!sufficient);
+    } else {
+      setCreditsRequired(0);
+      setShowCreditWarning(false);
+    }
+  }, [selectedLanguages, model]);
+
+  // Handle successful payment
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('payment') === 'success') {
+      const planId = urlParams.get('plan');
+      // Add credits based on the plan
+      if (planId) {
+        // In a real app, you'd verify the payment server-side first
+        // For now, we'll trigger a credit update event
+        window.dispatchEvent(new CustomEvent('creditUpdate'));
+      }
+      
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
 
   const handleImageUpload = async (
     event: React.ChangeEvent<HTMLInputElement>,
@@ -86,31 +130,69 @@ export default function Page() {
   const handleSubmit = async () => {
     if (!image || selectedLanguages.length === 0) return;
 
+    // Check if user has sufficient credits
+    const sufficient = hasSufficientCredits(creditsRequired);
+    if (!sufficient) {
+      setShowPurchaseModal(true);
+      return;
+    }
+
     setStatus("loading");
-
     const finalTone = useCustomTone ? customTone : tone;
+    const userId = getUserId();
 
-    const response = await fetch("/api/generateDescriptions", {
-      method: "POST",
-      body: JSON.stringify({
-        languages: selectedLanguages,
-        imageUrl: image,
-        model,
-        length,
-        tone: finalTone,
-      }),
-    });
+    try {
+      const response = await fetch("/api/generateDescriptions", {
+        method: "POST",
+        body: JSON.stringify({
+          languages: selectedLanguages,
+          imageUrl: image,
+          model,
+          length,
+          tone: finalTone,
+          userId,
+          skipCreditCheck: true, // We already checked client-side
+        }),
+      });
 
-    const descriptions = await response.json();
-    console.log(descriptions);
+      if (response.status === 402) {
+        // Payment required
+        const data = await response.json();
+        setShowPurchaseModal(true);
+        return;
+      }
 
-    setDescriptions(descriptions);
-    setStatus("success");
+      const result = await response.json();
+      console.log(result);
+
+      if (result.descriptions) {
+        // Deduct credits locally
+        const success = deductCredits(
+          creditsRequired, 
+          `Generated descriptions for ${selectedLanguages.length} language(s) using ${model}`
+        );
+
+        if (success) {
+          setDescriptions(result.descriptions);
+          setStatus("success");
+          // Trigger credit update event
+          window.dispatchEvent(new CustomEvent('creditUpdate'));
+        }
+      }
+    } catch (error) {
+      console.error('Error generating descriptions:', error);
+      setStatus("idle");
+    }
   };
 
   return (
     <div className="mx-auto my-12 grid max-w-7xl grid-cols-1 gap-8 px-4 lg:grid-cols-2">
       <Card className="mx-auto w-full max-w-xl p-6">
+        {/* Credit Balance Display */}
+        <div className="mb-6">
+          <CreditBalance onPurchaseClick={() => setShowPurchaseModal(true)} />
+        </div>
+
         <h2 className="mb-1 text-center text-2xl font-bold">
           Product Description Generator
         </h2>
@@ -118,6 +200,31 @@ export default function Page() {
           Upload an image or GIF of your product to generate descriptions in multiple
           languages. Max file size: 5MB.
         </p>
+
+        {/* Credit Warning */}
+        {showCreditWarning && creditsRequired > 0 && (
+          <div className="mb-4 rounded-lg bg-amber-50 border border-amber-200 p-4">
+            <div className="flex items-start">
+              <AlertTriangle className="h-5 w-5 text-amber-400 mt-0.5 mr-3" />
+              <div className="flex-1">
+                <h3 className="text-sm font-medium text-amber-800">
+                  Insufficient Credits
+                </h3>
+                <p className="text-sm text-amber-700 mt-1">
+                  This operation requires {creditsRequired} credits. Purchase more credits to continue.
+                </p>
+                <Button
+                  size="sm"
+                  onClick={() => setShowPurchaseModal(true)}
+                  className="mt-2 bg-amber-600 hover:bg-amber-700"
+                >
+                  Buy Credits
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div>
           <div
             className={`${image ? "border-transparent" : "transition-colors hover:border-primary"} my-4 flex aspect-[3] flex-col items-center justify-center rounded-lg border-2 border-dashed`}
@@ -328,6 +435,12 @@ export default function Page() {
           </div>
         </div>
       </Card>
+
+      {/* Purchase Credits Modal */}
+      <PurchaseCreditsModal
+        isOpen={showPurchaseModal}
+        onClose={() => setShowPurchaseModal(false)}
+      />
 
       {status === "idle" ? (
         <div className="flex h-64 flex-col items-center justify-center rounded-xl bg-gray-50 lg:h-auto">

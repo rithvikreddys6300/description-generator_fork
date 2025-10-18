@@ -1,6 +1,7 @@
 import Together from "together-ai";
 import { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
+import { calculateCreditsRequired } from "@/lib/credits";
 
 const together = new Together();
 
@@ -13,6 +14,8 @@ export async function POST(req: Request) {
       model: z.string(),
       length: z.string(),
       tone: z.string().optional(),
+      userId: z.string().optional(),
+      skipCreditCheck: z.boolean().optional().default(false),
     })
     .safeParse(json);
 
@@ -20,7 +23,20 @@ export async function POST(req: Request) {
     return new Response(result.error.message, { status: 422 });
   }
 
-  const { languages, imageUrl, model, length, tone = "professional" } = result.data;
+  const { languages, imageUrl, model, length, tone = "professional", userId, skipCreditCheck } = result.data;
+
+  // Calculate credits required
+  const creditsRequired = calculateCreditsRequired(languages, model);
+
+  // For this demo, we'll return the credit requirement info
+  // In a real application, you would check the database here
+  if (!skipCreditCheck) {
+    return Response.json({
+      creditsRequired,
+      error: 'INSUFFICIENT_CREDITS',
+      message: `This operation requires ${creditsRequired} credits. Please purchase more credits to continue.`,
+    }, { status: 402 }); // Payment Required status
+  }
 
   let descriptions;
   let rawResponse;
@@ -103,7 +119,10 @@ export async function POST(req: Request) {
     console.log(error);
   }
 
-  return Response.json(descriptions);
+  return Response.json({
+    descriptions,
+    creditsUsed: creditsRequired,
+  });
 }
 
 export const runtime = "edge";
